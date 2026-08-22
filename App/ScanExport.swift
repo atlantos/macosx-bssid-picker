@@ -344,65 +344,81 @@ enum ScanExporter {
     var records: [String] = [header.map(csvField).joined(separator: ",")]
     let contextJSON = try context.map(codableJSONString) ?? ""
     let scannedAtValue = scannedAt.map(iso8601) ?? ""
-    records.append(
-      contentsOf: try rows.map { row in
-        let rawElements = row.accessPoint.informationElements
-        let activeAssociation = row.clientState.activeAssociationObservation
-        let decodedJSON = try jsonString(
-          row.standards.elements.map { element in
-            [
-              "identifier": element.identifier,
-              "name": element.name,
-              "length": element.length,
-              "summary": element.summary,
-              "rawHex": element.rawHex,
-            ] as [String: Any]
-          }
+    for row in rows {
+      records.append(
+        try csvRecord(
+          for: row,
+          columns: columns,
+          contextJSON: contextJSON,
+          scannedAtValue: scannedAtValue,
+          scope: scope
         )
-        let typedJSON: String
-        if let report = row.standards.decodedReport {
-          typedJSON = try codableJSONString(ScanTypedInformationElementExport(report))
-        } else {
-          typedJSON = ""
-        }
-        let attribution = row.macAttribution
-        let registrationSource = attribution.flatMap { attribution -> String? in
-          if let source = attribution.registrationSourceDisplayName { return source }
-          let claimSources = Set(attribution.registryClaims.map(\.source.rawValue)).sorted()
-          return claimSources.isEmpty ? nil : claimSources.joined(separator: ", ")
-        }
-        let supplementalValues = [
-          attribution?.addressTypeDisplayName ?? "",
-          attribution?.allocationDisplayName ?? "",
-          attribution?.matchedPrefix ?? "",
-          registrationSource ?? "",
-          attribution?.databaseAgreementDisplayName ?? "",
-          attribution?.knownAddressRole ?? "",
-          row.standards.parseStatus,
-          rawElements == nil ? "false" : "true",
-          rawElements?.base64EncodedString() ?? "",
-          rawElements.map(ScanFormatting.compactHex) ?? "",
-          decodedJSON,
-          typedJSON,
-          row.clientState.lastConnectionEvent.map { iso8601($0.startedAt) } ?? "",
-          activeAssociation.map { iso8601($0.capturedAt) } ?? "",
-          activeAssociation?.ssid.map {
-            ScanFormatting.compactHex($0.data)
-          } ?? "",
-          activeAssociation?.bssid?.rawValue ?? "",
-          row.presentInLatestSuccessfulScan ? "true" : "false",
-          iso8601(row.lastSeenAt),
-          scannedAtValue,
-          scope.filenameComponent,
-          contextJSON,
-        ]
-        return (columns.map { row.stringValue(for: $0) } + supplementalValues)
-          .map(csvField)
-          .joined(separator: ",")
-      }
-    )
+      )
+    }
     // A UTF-8 BOM helps spreadsheet applications recognize non-ASCII SSIDs.
     return Data([0xEF, 0xBB, 0xBF]) + Data(records.joined(separator: "\r\n").utf8)
+  }
+
+  private static func csvRecord(
+    for row: ScanRow,
+    columns: [ScanColumnID],
+    contextJSON: String,
+    scannedAtValue: String,
+    scope: ScanExportScope
+  ) throws -> String {
+    let rawElements = row.accessPoint.informationElements
+    let activeAssociation = row.clientState.activeAssociationObservation
+    let decodedElements: [[String: Any]] = row.standards.elements.map { element in
+      [
+        "identifier": element.identifier,
+        "name": element.name,
+        "length": element.length,
+        "summary": element.summary,
+        "rawHex": element.rawHex,
+      ]
+    }
+    let decodedJSON = try jsonString(decodedElements)
+    let typedJSON: String
+    if let report = row.standards.decodedReport {
+      typedJSON = try codableJSONString(ScanTypedInformationElementExport(report))
+    } else {
+      typedJSON = ""
+    }
+    let attribution = row.macAttribution
+    let registrationSource = attribution.flatMap { attribution -> String? in
+      if let source = attribution.registrationSourceDisplayName { return source }
+      let claimSources = Set(attribution.registryClaims.map(\.source.rawValue)).sorted()
+      return claimSources.isEmpty ? nil : claimSources.joined(separator: ", ")
+    }
+
+    var values = columns.map { row.stringValue(for: $0) }
+    values.reserveCapacity(values.count + 21)
+    values.append(attribution?.addressTypeDisplayName ?? "")
+    values.append(attribution?.allocationDisplayName ?? "")
+    values.append(attribution?.matchedPrefix ?? "")
+    values.append(registrationSource ?? "")
+    values.append(attribution?.databaseAgreementDisplayName ?? "")
+    values.append(attribution?.knownAddressRole ?? "")
+    values.append(row.standards.parseStatus)
+    values.append(rawElements == nil ? "false" : "true")
+    values.append(rawElements?.base64EncodedString() ?? "")
+    values.append(rawElements.map(ScanFormatting.compactHex) ?? "")
+    values.append(decodedJSON)
+    values.append(typedJSON)
+    values.append(row.clientState.lastConnectionEvent.map { iso8601($0.startedAt) } ?? "")
+    values.append(activeAssociation.map { iso8601($0.capturedAt) } ?? "")
+    values.append(
+      activeAssociation?.ssid.map {
+        ScanFormatting.compactHex($0.data)
+      } ?? ""
+    )
+    values.append(activeAssociation?.bssid?.rawValue ?? "")
+    values.append(row.presentInLatestSuccessfulScan ? "true" : "false")
+    values.append(iso8601(row.lastSeenAt))
+    values.append(scannedAtValue)
+    values.append(scope.filenameComponent)
+    values.append(contextJSON)
+    return values.map(csvField).joined(separator: ",")
   }
 
   private static func csvField(_ value: String) -> String {
