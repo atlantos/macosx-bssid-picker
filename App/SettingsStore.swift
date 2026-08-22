@@ -100,16 +100,16 @@ final class SettingsStore {
     static let legacySelectedSSIDData = "SelectedSSIDData"
     static let legacySelectedBSSID = "SelectedBSSID"
     static let legacyLockEnabled = "LockEnabled"
-    static let legacySystemKeychainConsent = "SystemKeychainConsent"
-    static let legacySystemKeychainConsentSSIDData = "SystemKeychainConsentSSIDData"
+    static let legacySystemCredentialConsent = "SystemKeychainConsent"
+    static let legacySystemCredentialConsentSSIDData = "SystemKeychainConsentSSIDData"
 
-    static let legacyLockKeys = [
+    static let legacyLockPreferenceNames = [
       legacySelectedSSID,
       legacySelectedSSIDData,
       legacySelectedBSSID,
       legacyLockEnabled,
-      legacySystemKeychainConsent,
-      legacySystemKeychainConsentSSIDData,
+      legacySystemCredentialConsent,
+      legacySystemCredentialConsentSSIDData,
     ]
   }
 
@@ -259,8 +259,8 @@ final class SettingsStore {
       let bssid = BSSID(legacyBSSID)
     {
       let consentMatchesTarget =
-        defaults.bool(forKey: Key.legacySystemKeychainConsent)
-        && defaults.data(forKey: Key.legacySystemKeychainConsentSSIDData) == legacySSIDData
+        defaults.bool(forKey: Key.legacySystemCredentialConsent)
+        && defaults.data(forKey: Key.legacySystemCredentialConsentSSIDData) == legacySSIDData
       migratedConfiguration = LockConfiguration(
         target: NetworkTarget(ssid: ssid, bssid: bssid),
         displaySSID: defaults.string(forKey: Key.legacySelectedSSID),
@@ -292,7 +292,7 @@ final class SettingsStore {
   }
 
   private func removeLegacyLockKeys() {
-    for key in Key.legacyLockKeys {
+    for key in Key.legacyLockPreferenceNames {
       defaults.removeObject(forKey: key)
     }
   }
