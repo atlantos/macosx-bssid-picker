@@ -702,11 +702,7 @@ enum ScanTableCellFactory {
 
     let value: String
     if column == .clientAssociated {
-      switch row.clientState.associated {
-      case true: value = "✓"
-      case false: value = ""
-      case nil: value = ""
-      }
+      value = row.clientState.associated == true ? "✓" : ""
     } else {
       value = row.stringValue(for: column)
     }
