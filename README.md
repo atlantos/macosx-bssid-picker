@@ -44,13 +44,28 @@ analysis and historical findings.
 
 - macOS 13 or later.
 - An Intel or Apple silicon Mac.
-- Xcode or Xcode Command Line Tools with Swift, Clang, `xcrun`, and a macOS SDK.
-- A normal, non-root macOS account with a login Keychain.
 - Location permission at runtime so macOS can expose protected SSID and BSSID
   information.
 
-An Apple Developer Program membership is not required to build the app for
-personal use on the same Mac.
+Building from source additionally requires Xcode or Xcode Command Line Tools
+with Swift, Clang, `xcrun`, and a macOS SDK, plus a normal non-root account with
+a login Keychain. An Apple Developer Program membership is not required for a
+personal local build.
+
+## Download
+
+When a versioned [GitHub Release](https://github.com/atlantos/macosx-bssid-picker/releases)
+is published, it provides separate native archives for Apple silicon
+(`arm64`) and Intel (`x86_64`) Macs. Run `uname -m` in Terminal if you are
+unsure which architecture to download.
+
+Release applications are ad-hoc signed so their Sandbox entitlements and
+bundle integrity can be validated, but they are not Developer ID-signed or
+notarized by Apple. macOS therefore requires an explicit **Open Anyway**
+override. An ad-hoc identity also changes with the executable, so an update can
+repeat Location or Keychain approval and can ask for access to the existing app
+container. See [Installing a GitHub release](docs/INSTALLATION.md#installing-a-github-release)
+for the installation steps and full limitations.
 
 ## Build and install
 
@@ -77,8 +92,10 @@ replace the installed copy when updating it.
 
 For signing recovery, alternate identities, ad-hoc diagnostic builds, and the
 security model, see [Installation and Local Signing](docs/INSTALLATION.md).
-Public distribution requires Developer ID signing and notarization rather than
-the local self-signed identity.
+Building locally with the persistent identity is preferable when permission
+continuity across rebuilds matters. Normal Gatekeeper-trusted public
+distribution would require Developer ID signing and notarization; the GitHub
+release archives intentionally do not use that distribution path.
 
 ## First launch
 

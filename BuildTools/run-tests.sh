@@ -10,6 +10,7 @@ readonly script_dir
 project_dir="$(cd "$script_dir/.." && pwd -P)"
 readonly project_dir
 readonly deployment_target="13.0"
+readonly release_test_script="$project_dir/Tests/create-release-tests.sh"
 
 sdk_path=""
 target=""
@@ -50,6 +51,8 @@ resolve_target() {
 
 main() {
   [[ "$#" -eq 0 ]] || die "this command does not accept positional arguments"
+  [[ -x "$release_test_script" ]] ||
+    die "release-helper test script not found or not executable: $release_test_script"
   resolve_sdk
   resolve_target
 
@@ -111,6 +114,7 @@ main() {
     -o "$test_root/regression-tests"
 
   "$test_root/regression-tests"
+  "$release_test_script"
 }
 
 main "$@"

@@ -36,8 +36,10 @@ jobs:
           set -euo pipefail
 
           /bin/bash -n BuildTools/build-app.sh
+          /bin/bash -n BuildTools/create-release.sh
           /bin/bash -n BuildTools/run-tests.sh
           /bin/bash -n BuildTools/setup-local-signing.sh
+          /bin/bash -n Tests/create-release-tests.sh
           /usr/bin/plutil -lint App/Info.plist App/BSSIDPicker.entitlements
           /usr/bin/xcrun swift-format lint --recursive --strict App Tests
 

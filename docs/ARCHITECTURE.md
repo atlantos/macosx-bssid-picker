@@ -32,6 +32,18 @@ The build script:
 Local-signing setup and supported build overrides are documented in
 [Installation and Local Signing](INSTALLATION.md).
 
+`.github/workflows/release.yml` turns a strict `vX.Y.Z` tag into separate
+native Apple silicon and Intel release archives. Each native runner tests,
+builds, and ad-hoc signs the app, then verifies both the bundle and a cleanly
+extracted archive. A final job publishes the two ZIP files, SHA-256 checksums,
+and GitHub artifact attestations. This release path intentionally uses no Apple
+certificate or repository signing secret; its Gatekeeper and identity
+limitations are documented in
+[Installation and Local Signing](INSTALLATION.md#installing-a-github-release).
+`BuildTools/create-release.sh` is the deliberate local gate for creating and
+pushing that tag after source metadata, `main`, CI, and repository release
+settings have been validated; no Git hook can publish implicitly.
+
 ## Application lifecycle
 
 `AppDelegate` owns the application lifetime. `ApplicationController` is the
@@ -206,7 +218,9 @@ under `Tests/` with the same native target and macOS 13 deployment target as the
 application. The tests exercise MAC-prefix parsing and longest-prefix
 resolution, address classification, duplicate and ambiguous records,
 known-address matching, and the versioned JSON and CSV MAC-registration export
-contracts.
+contracts. A separate hermetic shell test creates disposable local Git
+repositories and a bare remote to exercise the guarded release-tag workflow;
+it never contacts or mutates the real GitHub repository.
 
 The test executable uses only in-memory fixtures. It does not launch the app,
 scan or modify Wi-Fi, access Keychain or Location data, contact database
@@ -238,7 +252,7 @@ The main source groups are:
 - `Tests/` — deterministic parser, resolver, and export-contract regression
   coverage.
 - `BuildTools/` — regression-test execution, local signing, compilation, bundle
-  assembly, and verification.
+  assembly, verification, and guarded release-tag creation.
 
 ## Design constraints
 

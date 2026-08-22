@@ -279,8 +279,9 @@ another installed identity for this build:
 
   BSSID_PICKER_SIGNING_IDENTITY="identity name" ./BuildTools/build-app.sh
 
-Ad-hoc signing is available only for build diagnostics and will not preserve
-Location Services or Keychain approvals across rebuilds:
+Ad-hoc signing is used by CI and automated GitHub release builds, and is also
+available for diagnostics. It will not preserve Location Services or Keychain
+approvals across rebuilds:
 
   BSSID_PICKER_SIGNING_IDENTITY=- ./BuildTools/build-app.sh
 EOF

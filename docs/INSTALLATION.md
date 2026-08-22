@@ -7,11 +7,14 @@ Mac where the app is built.
 
 ## Requirements
 
-- macOS 13 or later.
+Every installation requires macOS 13 or later and an archive matching the
+Mac's Intel or Apple silicon architecture. Building from source additionally
+requires:
+
 - Xcode or Xcode Command Line Tools providing `swiftc`, `clang`, `codesign`,
-  `xcrun`, and a macOS SDK.
-- An unlocked login Keychain.
-- A normal user account. Do not run the signing setup with `sudo`.
+  `xcrun`, and a macOS SDK;
+- an unlocked login Keychain; and
+- a normal user account. Do not run the signing setup with `sudo`.
 
 If neither Xcode nor the Command Line Tools are installed, request the latter
 with:
@@ -19,6 +22,44 @@ with:
 ```sh
 xcode-select --install
 ```
+
+## Installing a GitHub release
+
+Each versioned [GitHub Release][github-releases] provides two native archives:
+
+- `BSSID-Picker-vX.Y.Z-macos-arm64.zip` for Apple silicon Macs; and
+- `BSSID-Picker-vX.Y.Z-macos-x86_64.zip` for Intel Macs.
+
+Run `uname -m` in Terminal if the Mac's architecture is unknown. Download the
+matching archive and `SHA256SUMS`, compare the archive's SHA-256 digest with the
+published value, extract it, and move **BSSID Picker.app** to **Applications**.
+
+The release app is ad-hoc signed and is not notarized by Apple. Its signature
+protects the bundle after it was built and carries the required App Sandbox
+entitlements, but it does not identify an Apple-verified developer. Gatekeeper
+will therefore block the first ordinary launch. After attempting to open the
+app once:
+
+1. Open **System Settings → Privacy & Security**.
+2. Find the message that BSSID Picker was blocked and choose **Open Anyway**.
+3. Authenticate if requested, then confirm **Open**.
+
+Apple documents this override in [Safely open apps on your Mac][apple-open].
+It is recorded for that app, but an administrator or managed-device policy can
+prevent the override.
+
+Ad-hoc identity is derived from the exact executable. Installing a new release
+can therefore make macOS treat it as a different signer even though the bundle
+identifier is unchanged. An update may repeat Location or Keychain approval,
+ask for access to the existing app container, or require **Launch BSSID Picker
+at login** to be approved again. Denying container access can prevent that
+release from reading its prior settings and registrant database, and can stop
+it from opening. Building locally with the persistent identity described below
+is preferable when permission continuity matters.
+
+Each release also publishes `SHA256SUMS` and GitHub artifact attestations. The
+release's source tag is the Corresponding Source for its binaries, and each app
+bundle contains the GPLv3 license.
 
 ## Build and launch
 
@@ -186,16 +227,64 @@ To use another uniquely named installed Code Signing identity:
 BSSID_PICKER_SIGNING_IDENTITY="identity name" ./BuildTools/build-app.sh
 ```
 
-For compilation diagnostics only, an explicit `-` selects ad-hoc signing:
+An explicit `-` selects ad-hoc signing:
 
 ```sh
 BSSID_PICKER_SIGNING_IDENTITY=- ./BuildTools/build-app.sh
 ```
 
-Do not use ad-hoc signing for the normal installed copy. Permissions can be
-requested again after every rebuild because the app's code identity changes,
-and macOS can refuse or repeatedly prompt for access to an existing sandbox
-container owned by the stable identity.
+CI and the automated GitHub release workflow use this mode because no private
+signing key is required. For a normal locally built and installed copy, prefer
+the persistent identity. A normal `./BuildTools/build-app.sh` invocation still
+defaults to the `BSSID Picker Local Signing` identity installed in the login
+Keychain by `setup-local-signing.sh`; only an explicit `-` selects ad-hoc
+signing. Permissions can be requested again after every ad-hoc rebuild because
+the app's code identity changes, and macOS can refuse or repeatedly prompt for
+access to an existing sandbox container owned by another identity.
+
+## Publishing a GitHub release
+
+Releases are created only from strict `vX.Y.Z` tags. Before releasing, set
+`CFBundleShortVersionString` in `App/Info.plist` to the version without the
+leading `v`, increment `CFBundleVersion`, commit the changes, push `main`, and
+wait for CI to pass. Before the first publication, enable **Release
+immutability** in the repository's GitHub Settings so published tags and assets
+cannot later be changed. GitHub documents this under
+[Preventing changes to your releases][github-immutable].
+
+Use the explicit release helper instead of a Git hook:
+
+```sh
+./BuildTools/create-release.sh --dry-run 0.1.0
+./BuildTools/create-release.sh 0.1.0
+```
+
+This maintainer command requires an authenticated
+[GitHub CLI](https://cli.github.com/) session with access to the repository.
+The helper verifies the plist version and monotonically increasing build
+number, a clean `main` exactly matching `origin/main`, a successful CI push run
+for that commit, the absence of the tag, and enabled release immutability. It
+then asks for confirmation, creates the annotated `vX.Y.Z` tag, and pushes only
+that tag. `--yes` is available for an already reviewed noninteractive
+invocation. The helper does not change version metadata or create a release by
+itself; pushing the tag triggers the release workflow. A Git hook is not used
+because ordinary commits and pushes should never publish a release as a hidden
+side effect.
+
+The release workflow independently builds on native Apple silicon and Intel
+GitHub runners. For each architecture it runs the regression tests, builds an
+ad-hoc-signed app, verifies the version, architecture, signature, and Sandbox
+entitlements, archives the app, extracts it into a clean directory, and repeats
+the app checks. It then publishes:
+
+- `BSSID-Picker-vX.Y.Z-macos-arm64.zip`;
+- `BSSID-Picker-vX.Y.Z-macos-x86_64.zip`; and
+- `SHA256SUMS`.
+
+GitHub artifact attestations bind both archives to the workflow and source
+commit. The workflow uses no Apple certificate, private signing key, or
+repository secret. Release immutability prevents a published tag or asset from
+being replaced.
 
 ## Security boundary
 
@@ -203,19 +292,23 @@ The local identity protects continuity, not isolation from other processes
 running as the same macOS user. Such a process can invoke Apple's `codesign`
 tool and ask it to use Code Signing identities available to that user.
 
-For public distribution, use Developer ID signing and notarization instead of
-the local self-signed identity. Apple documents both
+Gatekeeper-trusted distribution without an **Open Anyway** override requires
+Developer ID signing and Apple notarization. The repository's automated GitHub
+releases intentionally use the less convenient ad-hoc path so releases require
+no privately held Apple signing key. Apple documents both
 [creating self-signed certificates][self-signed] and the purpose of stable code
 identity in its [Code Signing Guide][code-signing].
 
-Publish any binary release from an immutable source tag and keep the exact
-tagged Corresponding Source available with it, including the build and signing
-scripts and project-owned assets. The build embeds the repository's GPLv3
-license as `Contents/Resources/LICENSE.txt`; do not remove that copy from a
-distributed bundle.
+Keep the exact tagged Corresponding Source available with every binary release,
+including the build and signing scripts and project-owned assets. The build
+embeds the repository's GPLv3 license as `Contents/Resources/LICENSE.txt`; do
+not remove that copy from a distributed bundle.
 
 Build-system implementation details are documented in
 [Architecture](ARCHITECTURE.md).
 
 [self-signed]: https://support.apple.com/guide/keychain-access/create-self-signed-certificates-kyca8916/mac
 [code-signing]: https://developer.apple.com/library/archive/documentation/Security/Conceptual/CodeSigningGuide/Introduction/Introduction.html
+[github-releases]: https://github.com/atlantos/macosx-bssid-picker/releases
+[github-immutable]: https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/establish-provenance-and-integrity/prevent-release-changes
+[apple-open]: https://support.apple.com/102445
