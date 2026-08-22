@@ -1,0 +1,122 @@
+name: Bug report
+description: Report a reproducible problem with BSSID Picker.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve BSSID Picker.
+
+        Do not post passwords, credentials, Keychain output, complete Wi-Fi scan exports, or unredacted SSIDs and BSSIDs.
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues for this problem.
+          required: true
+        - label: I removed private network and credential information from this report.
+          required: true
+
+  - type: input
+    id: app-version
+    attributes:
+      label: BSSID Picker version
+      description: Use the version shown in About BSSID Picker.
+      placeholder: 0.1.0
+    validations:
+      required: true
+
+  - type: input
+    id: macos-version
+    attributes:
+      label: macOS version
+      placeholder: 15.6
+    validations:
+      required: true
+
+  - type: dropdown
+    id: architecture
+    attributes:
+      label: Mac architecture
+      options:
+        - Apple silicon
+        - Intel
+        - Unknown
+    validations:
+      required: true
+
+  - type: dropdown
+    id: build
+    attributes:
+      label: How was the app built or installed?
+      options:
+        - Locally built with the persistent local signing identity
+        - Locally built with an ad-hoc signature
+        - Publicly distributed build
+        - Unknown
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - Menu-bar BSSID picker
+        - Wi-Fi Scanner
+        - BSSID Lock
+        - MAC registrant database
+        - Settings or Launch at Login
+        - Build or local signing
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: association-mode
+    attributes:
+      label: Association mode
+      description: Select Not applicable if this is not an association problem.
+      options:
+        - Strict (experimental CoreWiFi)
+        - Standard (CoreWLAN)
+        - Not applicable
+        - Unknown
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Use substituted network names such as Network A and redact BSSIDs.
+      placeholder: |
+        1. Open ...
+        2. Select ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Additional diagnostics
+      description: Include only the smallest relevant, redacted excerpt. Do not attach a complete scan export or Keychain output.

@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and validate (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - macos-15
+          - macos-15-intel
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate sources and metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          /bin/bash -n BuildTools/build-app.sh
+          /bin/bash -n BuildTools/run-tests.sh
+          /bin/bash -n BuildTools/setup-local-signing.sh
+          /usr/bin/plutil -lint App/Info.plist App/BSSIDPicker.entitlements
+          /usr/bin/xcrun swift-format lint --recursive --strict App Tests
+
+          empty_tree_hash="$(/usr/bin/git hash-object -t tree /dev/null)"
+          /usr/bin/git diff --check "$empty_tree_hash" HEAD
+
+          /usr/bin/xcrun clang \
+            -std=c11 \
+            -Wall \
+            -Wextra \
+            -Werror \
+            -Wno-deprecated-declarations \
+            -fsyntax-only \
+            BuildTools/signing-key-helper.c
+
+      - name: Run regression tests
+        run: |
+          export BSSID_PICKER_SDK_PATH
+          BSSID_PICKER_SDK_PATH="$(/usr/bin/xcrun --sdk macosx --show-sdk-path)"
+          ./BuildTools/run-tests.sh
+
+      - name: Build with an ad-hoc signature
+        env:
+          BSSID_PICKER_SIGNING_IDENTITY: "-"
+        run: |
+          export BSSID_PICKER_SDK_PATH
+          BSSID_PICKER_SDK_PATH="$(/usr/bin/xcrun --sdk macosx --show-sdk-path)"
+          ./BuildTools/build-app.sh
+
+      - name: Confirm tracked files are unchanged
+        run: git diff --exit-code -- .
